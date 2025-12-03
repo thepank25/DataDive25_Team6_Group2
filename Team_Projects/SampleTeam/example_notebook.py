@@ -164,14 +164,86 @@ print(f"Cleaned data: {row_count:,} rows")
 conn.execute("SELECT * FROM indicator_clean LIMIT 5").df()
 
 # %%
-# Join with dictionary to add region information
+# Check what columns the dictionary table has
+print("Dictionary table columns:")
+print(conn.execute("DESCRIBE dictionary").df())
+
+# %%
+# The World Bank data dictionary file describes variables, not country metadata.
+# We'll create a simple region mapping based on country codes.
+# For a real project, you'd download a proper country-region mapping file.
+
+# Create a region mapping table based on common World Bank region codes
+conn.execute("""
+    CREATE OR REPLACE TABLE region_mapping AS
+    SELECT * FROM (VALUES
+        -- East Asia & Pacific
+        ('CHN', 'East Asia & Pacific'),
+        ('JPN', 'East Asia & Pacific'),
+        ('KOR', 'East Asia & Pacific'),
+        ('AUS', 'East Asia & Pacific'),
+        ('IDN', 'East Asia & Pacific'),
+        ('THA', 'East Asia & Pacific'),
+        ('VNM', 'East Asia & Pacific'),
+        ('MYS', 'East Asia & Pacific'),
+        ('PHL', 'East Asia & Pacific'),
+        ('NZL', 'East Asia & Pacific'),
+        -- Europe & Central Asia
+        ('DEU', 'Europe & Central Asia'),
+        ('FRA', 'Europe & Central Asia'),
+        ('GBR', 'Europe & Central Asia'),
+        ('ITA', 'Europe & Central Asia'),
+        ('ESP', 'Europe & Central Asia'),
+        ('POL', 'Europe & Central Asia'),
+        ('NLD', 'Europe & Central Asia'),
+        ('TUR', 'Europe & Central Asia'),
+        ('RUS', 'Europe & Central Asia'),
+        ('UKR', 'Europe & Central Asia'),
+        -- Latin America & Caribbean
+        ('BRA', 'Latin America & Caribbean'),
+        ('MEX', 'Latin America & Caribbean'),
+        ('ARG', 'Latin America & Caribbean'),
+        ('COL', 'Latin America & Caribbean'),
+        ('CHL', 'Latin America & Caribbean'),
+        ('PER', 'Latin America & Caribbean'),
+        ('VEN', 'Latin America & Caribbean'),
+        -- Middle East & North Africa
+        ('EGY', 'Middle East & North Africa'),
+        ('SAU', 'Middle East & North Africa'),
+        ('IRN', 'Middle East & North Africa'),
+        ('IRQ', 'Middle East & North Africa'),
+        ('MAR', 'Middle East & North Africa'),
+        ('DZA', 'Middle East & North Africa'),
+        -- North America
+        ('USA', 'North America'),
+        ('CAN', 'North America'),
+        -- South Asia
+        ('IND', 'South Asia'),
+        ('PAK', 'South Asia'),
+        ('BGD', 'South Asia'),
+        ('LKA', 'South Asia'),
+        ('NPL', 'South Asia'),
+        -- Sub-Saharan Africa
+        ('NGA', 'Sub-Saharan Africa'),
+        ('ZAF', 'Sub-Saharan Africa'),
+        ('KEN', 'Sub-Saharan Africa'),
+        ('ETH', 'Sub-Saharan Africa'),
+        ('GHA', 'Sub-Saharan Africa'),
+        ('TZA', 'Sub-Saharan Africa')
+    ) AS t(country_code, region)
+""")
+
+print("Created region_mapping table")
+
+# %%
+# Join with region mapping to add region information
 conn.execute("""
     CREATE OR REPLACE TABLE indicator_with_region AS
-    SELECT 
+    SELECT
         i.*,
-        COALESCE(d.Region, 'Unknown') AS region
+        COALESCE(r.region, 'Other') AS region
     FROM indicator_clean i
-    LEFT JOIN dictionary d ON LOWER(i.country_code) = LOWER(d.CountryCode)
+    LEFT JOIN region_mapping r ON UPPER(i.country_code) = r.country_code
 """)
 
 print("Created table: indicator_with_region")
